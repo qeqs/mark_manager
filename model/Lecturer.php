@@ -12,6 +12,9 @@ class Lecturer
 
     var $surname;
 
+    /*
+     * @manyToMany(Subject)
+     */
     var $subjects;
 
 }

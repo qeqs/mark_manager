@@ -6,10 +6,9 @@ abstract class BaseService
 
     protected $db;
     protected $table;
-    protected $relationships;
     protected $Class;
 
-    protected function __construct($table, $class, $relationships)
+    protected function __construct($table, $class)
     {
         $this->Class = $class;
         $this->table = $table;
@@ -65,6 +64,7 @@ abstract class BaseService
         $reflect = new ReflectionClass($object);
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
+            if ($this->isRelationship($object, $prop)) continue;
             $columns[$prop->getName()] = $prop->getValue();
         }
         return $columns;
@@ -83,6 +83,59 @@ abstract class BaseService
     public function getClass()
     {
         return $this->Class;
+    }
+
+    //ORM below
+
+
+
+    protected function isRelationship($object, $propName)
+    {
+        return $this->isManyToMany($object, $propName) || $this->isOneToMany($object, $propName) || $this->isOneToOne($object, $propName);
+    }
+
+    protected function isOneToMany($object, $propName)
+    {
+        return $this->isAnnotated($object, $propName, "@oneToMany");
+    }
+
+    protected function isManyToMany($object, $propName)
+    {
+        return $this->isAnnotated($object, $propName, "@manyToMany");
+    }
+
+    protected function isOneToOne($object, $propName)
+    {
+        return $this->isAnnotated($object, $propName, "@oneToOne");
+    }
+
+    protected function getAnnotationParam($annotationStr){
+        $matches = null;
+        $returnValue = preg_match_all('#\\(.*?\\)#', $annotationStr, $matches, PREG_SET_ORDER);
+        if($returnValue)
+            return substr($matches[0][0],1, strlen($matches[0][0])-1);
+        return '';
+    }
+
+    private function isAnnotated($object, $propName, $annotation)
+    {
+        $reflect = new ReflectionClass($object);
+        $comment = $reflect->getProperty($propName)->getDocComment();
+        return $this->contains($comment, $annotation);
+    }
+
+    private function getAnnotationString($doc)
+    {
+        $matches = null;
+        $returnValue = preg_match_all('#@(.*?)\\n#s', $doc, $matches, PREG_SET_ORDER);
+        if ($returnValue)
+            return $matches[0][0];
+        return 0;
+    }
+
+    private function contains($str, $what)
+    {
+        return strpos($str, $what) !== false;
     }
 
 

@@ -10,8 +10,14 @@ class Subject
 
     var $name;
 
+    /*
+     * @manyToMany(Lecturer)
+     */
     var $lecturers;
 
+    /*
+     * @manyToMany(Student)
+     */
     var $students;
 
 

@@ -18,6 +18,9 @@ class Student
 
     var $group;
 
+    /*
+     * @manyToMany(Subject)
+     */
     var $subjects;
 
 
