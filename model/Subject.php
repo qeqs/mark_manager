@@ -11,12 +11,12 @@ class Subject
     var $name;
 
     /*
-     * @manyToMany(Lecturer, SELECT sl.lecturer_id FROM subject_lecturer sl WHERE sl.subject_id=?)
+     * @manyToMany(Lecturer,subjects,subject_lecturer,subject_id,lecturer_id)
      */
     var $lecturers;
 
     /*
-     * @manyToMany(Student, SELECT sl.student_id FROM subject_student sl WHERE sl.subject_id=?)
+     * @manyToMany(Student,subjects,subject_student,subject_id,student_id)
      */
     var $students;
 

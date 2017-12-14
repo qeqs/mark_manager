@@ -11,7 +11,7 @@ class Mark
     var $type;
 
     /*
-     * @oneToMany(Subject, SELECT subject_id FROM mark WHERE id=?)
+     * @oneToMany(Subject,subject_id)
      */
     var $subject;
 }

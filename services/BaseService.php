@@ -23,13 +23,21 @@ abstract class BaseService
     public function get($id)
     {
         $sql = "SELECT * FROM {$this->table} WHERE id={$id}";
-        return $this->executeQuery($sql);
+        $object = $this->executeQuery($sql);
+
+        $this->processRelationship($object, "GET");
+        return $object;
     }
 
     public function getAll()
     {
         $sql = "SELECT * FROM {$this->table}";
-        return $this->executeQuery($sql);
+        $objects = $this->executeQueryForClassArray($sql, $this->Class);
+
+        foreach ($objects as $object) {
+            $this->processRelationship($object, "GET");
+        }
+        return $objects;
     }
 
     public function save($object, $isCascade)
@@ -43,19 +51,31 @@ abstract class BaseService
 
         $sql .= $this->getColumnsAsString($object);
 
-        return $this->execute($sql);
+        $this->execute($sql);
+
+        if (!isset($object->id))
+            $object->id = $this->db->insert_id;
+
+
+        if ($isCascade) {
+            $this->processRelationship($object, "SAVE");
+        }
 
     }
 
     public function delete($id)
     {
         $sql = "DELETE FROM {$this->table} WHERE id={$id}";
-        return $this->executeQuery($sql);
+        $this->execute($sql);
+
+        $object = $this->createObject($this->Class);
+        $object->id = $id;
+        $this->processRelationship($object, "DELETE");
     }
 
     final protected function executeQuery($sql)
     {
-        return $this->_executeQuery($sql, $this->Class);
+        return $this->executeQueryForClass($sql, $this->Class);
     }
 
     final protected function execute($sql)
@@ -63,22 +83,27 @@ abstract class BaseService
         return $this->db->query($sql);
     }
 
-    final protected function _executeQuery($sql, $class)
+    final protected function executeQueryForClass($sql, $class)
     {
-        if ($rst = $this->execute($sql)) {
-            if ($Object = $rst->fetch_object($class)) {
-                $rst->free();
+        $arr = $this->executeQueryForClassArray($sql, $class);
+        return $arr[0];
+    }
 
-            } else {
-                throw new DatabaseException($sql, $this->db->error, $this->db->errno);
+    final protected function executeQueryForClassArray($sql, $class)
+    {
+        $Objects = array();
+        if ($rst = $this->execute($sql)) {
+            while ($Object = $rst->fetch_object($class)) {
+                $Objects[] = $Object;
             }
+            $rst->free();
         } else {
             throw new DatabaseException($sql, $this->db->error, $this->db->errno);
         }
-        return $Object;
+        return $Objects;
     }
 
-    final protected function _executeQueryArrayNum($sql)
+    final protected function executeQueryArrayNum($sql)
     {
         $res = array();
         if ($rst = $this->execute($sql)) {
@@ -97,7 +122,7 @@ abstract class BaseService
         return $res;
     }
 
-    final protected function _executeQueryArrayAssoc($sql)
+    final protected function executeQueryArrayAssoc($sql)
     {
         if ($rst = $this->execute($sql)) {
             if ($arr = $rst->fetch_all(MYSQLI_ASSOC)) {
@@ -145,22 +170,68 @@ abstract class BaseService
 
     //ORM below
 
-    protected abstract function selectRelationObjectIds();
+    private function processRelationship($object, $processType){
+        switch ($processType){
+            case "GET":
+                $propertyNames = $this->getAnnotatedProperties($object);
+                foreach ($propertyNames as $name) {
+                    $this->processSelectRelationship($object, $name, $this->getAnnotationName($object, $name));
+                }
+                break;
+            case "SAVE":
+                $propertyNames = $this->getAnnotatedProperties($object);
+                foreach ($propertyNames as $name) {
+                    $this->processSaveRelationship($object, $name, $this->getAnnotationName($object, $name));
+                }
+                break;
+            case "DELETE":
+                $propertyNames = $this->getAnnotatedProperties($object);
+                foreach ($propertyNames as $name) {
+                    $this->processDeleteRelationship($object, $name, $this->getAnnotationName($object, $name));
+                }
+                break;
+        }
+    }
 
-    protected abstract function saveRelationObject($object);
 
-    protected abstract function deleteRelationObjectIds($id, $relationId);
-
-
-    private function processSelectRelationship($object, $propName, $relashionType)
+    private function processSelectRelationship($object, $propName, $relationType)
     {
-
-        switch ($relashionType) {
+        switch ($relationType) {
             case MANY_TO_MANY:
                 $this->processSelectManyToMany($object, $propName);
                 break;
             case ONE_TO_MANY:
                 $this->processSelectOneToMany($object, $propName);
+                break;
+            case ONE_TO_ONE:
+                //todo
+                break;
+        }
+    }
+
+    private function processSaveRelationship($object, $propName, $relationType)
+    {
+        switch ($relationType) {
+            case MANY_TO_MANY:
+                $this->processSaveManyToMany($object, $propName);
+                break;
+            case ONE_TO_MANY:
+                $this->processSaveOneToMany($object, $propName);
+                break;
+            case ONE_TO_ONE:
+                //todo
+                break;
+        }
+    }
+
+    private function processDeleteRelationship($object, $propName, $relashionType)
+    {
+        switch ($relashionType) {
+            case MANY_TO_MANY:
+                $this->processDeleteManyToMany($object, $propName);
+                break;
+            case ONE_TO_MANY:
+                $this->processDeleteOneToMany($object, $propName);
                 break;
             case ONE_TO_ONE:
                 break;
@@ -187,16 +258,16 @@ abstract class BaseService
         $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable} crt WHERE crt.{$columnName}={$id}";
         $getReverseRelationIdsSql = "SELECT * FROM {$crossRefTable} crt WHERE crt.{$relationColumnName}=";
 
-        $relationIds = $this->_executeQueryArrayNum($getRelationIdsSql);
+        $relationIds = $this->executeQueryArrayNum($getRelationIdsSql);
 
         $relationTable = $relationService->getTable();
         $sql = "SELECT * FROM {$relationTable} WHERE id=";
         $relationObjects = array();
         foreach ($relationIds as $relationId) {
-            $relationOfRelationsIds = $this->_executeQueryArrayAssoc($getReverseRelationIdsSql + $relationId);
+            $relationOfRelationsIds = $this->executeQueryArrayAssoc($getReverseRelationIdsSql.$relationId);
             foreach ($relationOfRelationsIds as $relation) {
-                $relationObj = $this->_executeQuery($sql + $relation[$relationColumnName], $relationClass);
-                $this->setRelation($relationObj, $relationProperty, get($relation[$columnName]));
+                $relationObj = $this->executeQueryForClass($sql.$relation[$relationColumnName], $relationClass);
+                $this->setRelation($relationObj, $relationProperty, $this->get($relation[$columnName]));
                 $relationObjects[] = $relationObj;
             }
         }
@@ -220,28 +291,13 @@ abstract class BaseService
 
         $getRelationIdSql = "SELECT {$relationColumnName} FROM {$this->table} crt WHERE id={$id}";
 
-        $relationIds = $this->_executeQueryArrayNum($getRelationIdSql);
+        $relationIds = $this->executeQueryArrayNum($getRelationIdSql);
         $relationId = $relationIds[0][0];
 
         $relationTable = $relationService->getTable();
         $sql = "SELECT * FROM {$relationTable} WHERE id={$relationId}";
-        $relationObject = $this->_executeQuery($sql, $relationClass);
+        $relationObject = $this->executeQueryForClass($sql, $relationClass);
         $this->setRelation($object, $propName, $relationObject);
-    }
-
-
-    private function processSaveRelationship($object, $propName, $relashionType)
-    {
-
-        switch ($relashionType) {
-            case MANY_TO_MANY:
-                $this->processSaveManyToMany($object, $propName);
-                break;
-            case ONE_TO_MANY:
-                break;
-            case ONE_TO_ONE:
-                break;
-        }
     }
 
     private function processSaveManyToMany($object, $propName)
@@ -263,13 +319,13 @@ abstract class BaseService
         $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable} crt WHERE crt.{$columnName}={$id}";
 
         $relations = $this->getRelation($object, $propName);
-        $relationIds = $this->_executeQueryArrayNum($getRelationIdsSql);
+        $relationIds = $this->executeQueryArrayNum($getRelationIdsSql);
         foreach ($relations as $relation) {
 
 
-            if($relationService->save($relation, false)) {
+            if ($relationService->save($relation, false)) {
 
-                $relationId = $relation . id;
+                $relationId = $relation->id;
                 if (!in_array($relationId, $relationIds)) {
                     if (!isset($relationId)) $relationId = $this->db->insert_id;
                     $sql = "INSERT INTO {$crossRefTable} SET ";
@@ -281,21 +337,48 @@ abstract class BaseService
         }
     }
 
-
-    private function processDeleteRelationship($object, $propName, $relashionType)
+    private function processSaveOneToMany($object, $propName)
     {
-
+        $id = $object->id;
         $annotationParams = $this->getParams($object, $propName);
+        $relationClass = get_class($annotationParams[0]);
+        $relationColumnName = $annotationParams[1];
 
-        switch ($relashionType) {
-            case MANY_TO_MANY:
-                break;
-            case ONE_TO_MANY:
-                break;
-            case ONE_TO_ONE:
-                break;
+        $relationService = null;
+        foreach ($this->getAllChildClasses() as $service) {
+            if ($service->getClass() == $relationClass) {
+                $relationService = $service;
+            }
+        }
+
+        $relation = $this->getRelation($object, $propName);
+
+        if ($relationService->save($relation, false)) {
+
+            $relationId = $relation->id;
+            if (!isset($relationId)) $relationId = $this->db->insert_id;
+            $sql = "UPDATE {$this->table} SET ";
+            $sql .= " {$relationColumnName} = {$relationId} WHERE id={$id}";
+            $this->execute($sql);
         }
     }
+
+    private function processDeleteManyToMany($object, $propName)
+    {
+        $id = $object->id;
+        $annotationParams = $this->getParams($object, $propName);
+        $crossRefTable = $annotationParams[2];
+        $columnName = $annotationParams[3];
+
+        $sql = "DELETE FROM {$crossRefTable} WHERE {$columnName}={$id}";
+        $this->execute($sql);
+    }
+
+    private function processDeleteOneToMany($object, $propName)
+    {
+
+    }
+
 
     private function isRelationship($object, $propName)
     {
@@ -350,6 +433,17 @@ abstract class BaseService
         return 0;
     }
 
+    private function getAnnotationName($object, $propName)
+    {
+        $reflect = new ReflectionClass($object);
+        $annotationStr = $this->getAnnotationString($reflect->getProperty($propName)->getDocComment());
+        $matches = null;
+        $returnValue = preg_match_all('#@(.*?)\\(#s', $annotationStr, $matches, PREG_SET_ORDER);
+        if ($returnValue)
+            return substr($matches[0][0], 0, strlen($matches[0][0]) - 1);
+        return 0;
+    }
+
     private function setRelation($object, $propName, $value)
     {
         $reflect = new ReflectionClass($object);
@@ -366,11 +460,29 @@ abstract class BaseService
     {
         $children = array();
         foreach (get_declared_classes() as $class) {
-            if (is_subclass_of($class, 'BaseService'))
+            if (is_subclass_of($class, 'BaseService')) {
                 $instance = new ReflectionClass($class);
-            $children[] = $instance->newInstance();
+                $children[] = $instance->newInstance();
+            }
         }
         return $children;
+    }
+
+    private function getAnnotatedProperties($object)
+    {
+        $properties = array();
+        $reflect = new ReflectionClass($object);
+        foreach ($reflect->getProperties() as $prop) {
+            if ($this->isRelationship($object, $prop)) {
+                $properties[] = $prop->getName();
+            }
+        }
+        return $properties;
+    }
+
+    private function createObject($class){
+        $reflect = new ReflectionClass($class);
+        return $reflect->newInstance();
     }
 
     private function contains($str, $what)

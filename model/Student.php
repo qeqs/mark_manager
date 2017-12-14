@@ -19,7 +19,7 @@ class Student
     var $group;
 
     /*
-     * @manyToMany(Subject, SELECT sl.subject_id FROM subject_student sl WHERE sl.student_id=?)
+     * @manyToMany(Subject,students,subject_student,student_id,subject_id)
      */
     var $subjects;
 

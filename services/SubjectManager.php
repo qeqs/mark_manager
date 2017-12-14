@@ -1,6 +1,9 @@
 <?php
 
-class SubjectManager
+class SubjectManager extends BaseService
 {
-
+    public function __construct()
+    {
+        parent::__construct("subject", Subject::class);
+    }
 }
