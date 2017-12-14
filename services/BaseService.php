@@ -1,5 +1,5 @@
 <?php
-include '../sql/DataBase.php';
+include "../sql/DataBase.php";
 
 const MANY_TO_MANY = "@manyToMany";
 const ONE_TO_MANY = "@oneToMany";
@@ -142,7 +142,7 @@ abstract class BaseService
         $reflect = new ReflectionClass($object);
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
-            if ($this->isRelationship($object, $prop)) continue;
+            if ($this->isRelationship($object, $prop->getName())) continue;
             $columns[$prop->getName()] = $prop->getValue();
         }
         return $columns;
@@ -473,7 +473,7 @@ abstract class BaseService
         $properties = array();
         $reflect = new ReflectionClass($object);
         foreach ($reflect->getProperties() as $prop) {
-            if ($this->isRelationship($object, $prop)) {
+            if ($this->isRelationship($object, $prop->getName())) {
                 $properties[] = $prop->getName();
             }
         }

@@ -29,7 +29,7 @@ class DataBase
     public static function getInstance()
     {
         if (!is_object(self::$db)) {
-            self::$db = new mysql(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+            self::$db = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
         }
         return self::$db;
     }

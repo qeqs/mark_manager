@@ -1,4 +1,6 @@
 <?php
+include 'BaseService.php';
+include '../model/Subject.php';
 
 class SubjectManager extends BaseService
 {

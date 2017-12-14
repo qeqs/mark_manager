@@ -1,7 +1,7 @@
 <?php
 
 include "../services/MarkService.php";
-include "../model/Mark.php";
+include "../model/Subject.php";
 
 $mark = new Mark();
 $mark->type = "quiz";
