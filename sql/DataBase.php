@@ -2,7 +2,6 @@
 
 /**
  * DataBase singleton class
- * @internal
  */
 class DataBase
 {
