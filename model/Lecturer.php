@@ -13,7 +13,7 @@ class Lecturer
     var $surname;
 
     /*
-     * @manyToMany(Subject)
+     * @manyToMany(Subject, SELECT sl.subject_id FROM subject_lecturer sl WHERE sl.lecturer_id=?)
      */
     var $subjects;
 
