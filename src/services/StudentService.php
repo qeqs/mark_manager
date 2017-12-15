@@ -1,6 +1,4 @@
 <?php
-include 'BaseService.php';
-include '../model/Student.php';
 
 class StudentService extends BaseService
 {

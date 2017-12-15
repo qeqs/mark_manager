@@ -1,5 +1,4 @@
 <?php
-include "../sql/DataBase.php";
 
 const MANY_TO_MANY = "@manyToMany";
 const ONE_TO_MANY = "@oneToMany";
@@ -42,6 +41,7 @@ abstract class BaseService
 
     public function save($object, $isCascade)
     {
+        if ($object == null) return false;
 
         $sql = "INSERT INTO {$this->table} SET ";
 
@@ -51,7 +51,7 @@ abstract class BaseService
 
         $sql .= $this->getColumnsAsString($object);
 
-        $this->execute($sql);
+        $res = $this->execute($sql);
 
         if (!isset($object->id))
             $object->id = $this->db->insert_id;
@@ -60,6 +60,8 @@ abstract class BaseService
         if ($isCascade) {
             $this->processRelationship($object, "SAVE");
         }
+
+        return true;
 
     }
 
@@ -142,8 +144,9 @@ abstract class BaseService
         $reflect = new ReflectionClass($object);
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
-            if ($this->isRelationship($object, $prop->getName())) continue;
-            $columns[$prop->getName()] = $prop->getValue();
+            if (!$this->isRelationship($object, $prop->getName())) {
+                $columns[$prop->getName()] = $prop->getValue($object);
+            }
         }
         return $columns;
     }
@@ -170,8 +173,11 @@ abstract class BaseService
 
     //ORM below
 
-    private function processRelationship($object, $processType){
-        switch ($processType){
+    private function processRelationship($object, $processType)
+    {
+        if ($object == null) return;
+
+        switch ($processType) {
             case "GET":
                 $propertyNames = $this->getAnnotatedProperties($object);
                 foreach ($propertyNames as $name) {
@@ -264,9 +270,9 @@ abstract class BaseService
         $sql = "SELECT * FROM {$relationTable} WHERE id=";
         $relationObjects = array();
         foreach ($relationIds as $relationId) {
-            $relationOfRelationsIds = $this->executeQueryArrayAssoc($getReverseRelationIdsSql.$relationId);
+            $relationOfRelationsIds = $this->executeQueryArrayAssoc($getReverseRelationIdsSql . $relationId);
             foreach ($relationOfRelationsIds as $relation) {
-                $relationObj = $this->executeQueryForClass($sql.$relation[$relationColumnName], $relationClass);
+                $relationObj = $this->executeQueryForClass($sql . $relation[$relationColumnName], $relationClass);
                 $this->setRelation($relationObj, $relationProperty, $this->get($relation[$columnName]));
                 $relationObjects[] = $relationObj;
             }
@@ -453,7 +459,7 @@ abstract class BaseService
     private function getRelation($object, $propName)
     {
         $reflect = new ReflectionClass($object);
-        return $reflect->getProperty($propName)->getValue();
+        return $reflect->getProperty($propName)->getValue($object);
     }
 
     private function getAllChildClasses()
@@ -480,7 +486,8 @@ abstract class BaseService
         return $properties;
     }
 
-    private function createObject($class){
+    private function createObject($class)
+    {
         $reflect = new ReflectionClass($class);
         return $reflect->newInstance();
     }
