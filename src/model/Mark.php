@@ -10,7 +10,7 @@ class Mark
 
     var $type;
 
-    /*
+    /**
      * @oneToMany(Subject,subject_id)
      */
     var $subject;

@@ -18,7 +18,7 @@ class Student
 
     var $group;
 
-    /*
+    /**
      * @manyToMany(Subject,students,subject_student,student_id,subject_id)
      */
     var $subjects;

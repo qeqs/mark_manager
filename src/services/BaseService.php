@@ -144,6 +144,8 @@ abstract class BaseService
         $reflect = new ReflectionClass($object);
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
+            error_log("Columns: {$prop->getName()} - ".(!$this->isRelationship($object, $prop->getName())));
+
             if (!$this->isRelationship($object, $prop->getName())) {
                 $columns[$prop->getName()] = $prop->getValue($object);
             }
@@ -347,7 +349,7 @@ abstract class BaseService
     {
         $id = $object->id;
         $annotationParams = $this->getParams($object, $propName);
-        $relationClass = get_class($annotationParams[0]);
+        $relationClass = $annotationParams[0];
         $relationColumnName = $annotationParams[1];
 
         $relationService = null;
@@ -427,6 +429,7 @@ abstract class BaseService
     {
         $reflect = new ReflectionClass($object);
         $comment = $reflect->getProperty($propName)->getDocComment();
+        error_log($comment." ~ ".$annotation);
         return $this->contains($comment, $annotation);
     }
 

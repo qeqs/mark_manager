@@ -12,7 +12,7 @@ class Lecturer
 
     var $surname;
 
-    /*
+    /**
      * @manyToMany(Subject,lecturers,subject_lecturer,lecturer_id,subject_id)
      */
     var $subjects;
