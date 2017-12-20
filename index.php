@@ -15,7 +15,9 @@ try {
 
     $markService = new MarkService();
     $markService->save($mark, true);
-    echo $markService->get($mark->id);
+    $id = $markService->get($mark->id);
+    error_log($id);
+    echo $id;
 }
 catch (Exception $e){
     echo $e->getFile()."\n";

@@ -88,7 +88,10 @@ abstract class BaseService
     final protected function executeQueryForClass($sql, $class)
     {
         $arr = $this->executeQueryForClassArray($sql, $class);
-        return $arr[0];
+        if (count($arr) > 0) {
+            return $arr[0];
+        }
+        else null;
     }
 
     final protected function executeQueryForClassArray($sql, $class)
@@ -144,8 +147,6 @@ abstract class BaseService
         $reflect = new ReflectionClass($object);
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
-            error_log("Columns: {$prop->getName()} - ".(!$this->isRelationship($object, $prop->getName())));
-
             if (!$this->isRelationship($object, $prop->getName())) {
                 $columns[$prop->getName()] = $prop->getValue($object);
             }
@@ -429,7 +430,6 @@ abstract class BaseService
     {
         $reflect = new ReflectionClass($object);
         $comment = $reflect->getProperty($propName)->getDocComment();
-        error_log($comment." ~ ".$annotation);
         return $this->contains($comment, $annotation);
     }
 
