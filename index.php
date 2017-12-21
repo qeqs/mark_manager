@@ -1,32 +1,30 @@
 <?php
 
-echo "hello\n";
 
-try {
-    include_once 'includes.php';
+include_once 'includes.php';
 
-    $mark = new Mark();
-    $mark->type = "quiz";
-    $subject = new Subject();
-    $subject->name = "TOI";
-    $subject->lecturers = array();
-    $subject->students = array();
-    $mark->subject = $subject;
+$mark = new Mark();
+$mark->type = "quiz";
+$subject = new Subject();
+$subject->name = "TOI";
+$subject->lecturers = array();
+$subject->students = array();
+$mark->subject = $subject;
 
-    $markService = new MarkService();
-    $markService->save($mark, true);
-    $id = $markService->get($mark->id);
-    error_log($id);
-    echo $id;
+$markService = new MarkService();
+if ($markService->save($mark, true)) {
+    echo "hello\n";
+} else {
+
+    echo "not hello\n";
 }
-catch (Exception $e){
-    echo $e->getFile()."\n";
-    echo $e->getMessage()."\n";
-    echo $e->getTraceAsString()."\n";
-}
-catch (ErrorException $e){
-    echo $e->getFile()."\n";
-    echo $e->getMessage()."\n";
-    echo $e->getTraceAsString()."\n";
-}
+$mark = $markService->get($mark->id);
+error_log($mark->id);
+echo $mark->id;
 
+$sql = "INSERT INTO `mark`(`id`, `type`, `subject_id`) VALUES (1, 'att', 0)";
+DataBase::getInstance()->query($sql);
+$mark = $markService->get(1);
+
+error_log($mark->id);
+echo $mark->id;

@@ -23,7 +23,7 @@ abstract class BaseService
     {
         $sql = "SELECT * FROM {$this->table} WHERE id={$id}";
         $object = $this->executeQuery($sql);
-
+        error_log("Object: ".$object);
         $this->processRelationship($object, "GET");
         return $object;
     }
@@ -42,18 +42,19 @@ abstract class BaseService
     public function save($object, $isCascade)
     {
         if ($object == null) return false;
+        $withId = isset($object->id);
 
-        $sql = "INSERT INTO {$this->table} SET ";
+        $sql = "INSERT INTO {$this->table}(";
 
-        $sql .= $this->getColumnsAsString($object);
+        $sql .= $this->getColumnsAsString($object, $withId);
 
-        $sql .= ' ON DUPLICATE KEY UPDATE '; // MySQL
+        $sql .= ') ON DUPLICATE KEY UPDATE '; // MySQL
 
-        $sql .= $this->getColumnsAsString($object);
+        $sql .= $this->getValuesAsString($object, $withId);
 
         $res = $this->execute($sql);
 
-        if (!isset($object->id))
+        if (!$withId)
             $object->id = $this->db->insert_id;
 
 
@@ -61,7 +62,7 @@ abstract class BaseService
             $this->processRelationship($object, "SAVE");
         }
 
-        return true;
+        return $res;
 
     }
 
@@ -82,12 +83,14 @@ abstract class BaseService
 
     final protected function execute($sql)
     {
+        error_log("SQL: ".$sql);
         return $this->db->query($sql);
     }
 
     final protected function executeQueryForClass($sql, $class)
     {
         $arr = $this->executeQueryForClassArray($sql, $class);
+        error_log("Found objects: ".count($arr));
         if (count($arr) > 0) {
             return $arr[0];
         }
@@ -154,12 +157,38 @@ abstract class BaseService
         return $columns;
     }
 
-    final protected function getColumnsAsString($object)
+    final protected function getColumnsWithValuesAsString($object, $withId)
     {
         $sql = "";
         $columns = $this->getColumns($object);
         foreach ($columns as $key => $value) {
-            $sql .= ", {$key}={$value} ";
+            if($withId | $key != "id") {
+                $sql .= ", {$key}={$value} ";
+            }
+        }
+        return substr($sql, 1);
+    }
+
+    final protected function getColumnsAsString($object, $withId)
+    {
+        $sql = "";
+        $columns = $this->getColumns($object);
+        foreach ($columns as $key => $value) {
+            if($withId | $key != "id") {
+                $sql .= ", {$key} ";
+            }
+        }
+        return substr($sql, 1);
+    }
+
+    final protected function getValuesAsString($object, $withId)
+    {
+        $sql = "";
+        $columns = $this->getColumns($object);
+        foreach ($columns as $key => $value) {
+            if($withId | $key != "id") {
+                $sql .= ", {$value} ";
+            }
         }
         return substr($sql, 1);
     }
