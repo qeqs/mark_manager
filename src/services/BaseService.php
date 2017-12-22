@@ -23,7 +23,6 @@ abstract class BaseService
     {
         $sql = "SELECT * FROM {$this->table} WHERE id={$id}";
         $object = $this->executeQuery($sql);
-        error_log("Object: ".$object);
         $this->processRelationship($object, "GET");
         return $object;
     }
@@ -46,11 +45,13 @@ abstract class BaseService
 
         $sql = "INSERT INTO {$this->table}(";
 
-        $sql .= $this->getColumnsAsString($object, $withId);
+        $sql .= $this->getColumnsAsString($object, $withId) . ") ";
 
-        $sql .= ') ON DUPLICATE KEY UPDATE '; // MySQL
+        $sql .= "VALUES(" . $this->getValuesAsString($object, $withId) . ") ";
 
-        $sql .= $this->getValuesAsString($object, $withId);
+        $sql .= 'ON DUPLICATE KEY UPDATE '; // MySQL
+
+        $sql .= $this->getColumnsWithValuesAsString($object, $withId);
 
         $res = $this->execute($sql);
 
@@ -83,18 +84,16 @@ abstract class BaseService
 
     final protected function execute($sql)
     {
-        error_log("SQL: ".$sql);
+        error_log("SQL: " . $sql);
         return $this->db->query($sql);
     }
 
     final protected function executeQueryForClass($sql, $class)
     {
         $arr = $this->executeQueryForClassArray($sql, $class);
-        error_log("Found objects: ".count($arr));
         if (count($arr) > 0) {
             return $arr[0];
-        }
-        else null;
+        } else null;
     }
 
     final protected function executeQueryForClassArray($sql, $class)
@@ -151,7 +150,8 @@ abstract class BaseService
         $columns = array();
         foreach ($reflect->getProperties() as $prop) {
             if (!$this->isRelationship($object, $prop->getName())) {
-                $columns[$prop->getName()] = $prop->getValue($object);
+                $val = $prop->getValue($object);
+                $columns[$prop->getName()] = is_string($val) ? "'" . $val . "'" : $val;
             }
         }
         return $columns;
@@ -162,7 +162,7 @@ abstract class BaseService
         $sql = "";
         $columns = $this->getColumns($object);
         foreach ($columns as $key => $value) {
-            if($withId | $key != "id") {
+            if ($withId | $key != "id") {
                 $sql .= ", {$key}={$value} ";
             }
         }
@@ -174,7 +174,7 @@ abstract class BaseService
         $sql = "";
         $columns = $this->getColumns($object);
         foreach ($columns as $key => $value) {
-            if($withId | $key != "id") {
+            if ($withId | $key != "id") {
                 $sql .= ", {$key} ";
             }
         }
@@ -186,7 +186,7 @@ abstract class BaseService
         $sql = "";
         $columns = $this->getColumns($object);
         foreach ($columns as $key => $value) {
-            if($withId | $key != "id") {
+            if ($withId | $key != "id") {
                 $sql .= ", {$value} ";
             }
         }
@@ -280,7 +280,7 @@ abstract class BaseService
     {
         $id = $object->id;
         $annotationParams = $this->getParams($object, $propName);
-        $relationClass = get_class($annotationParams[0]);
+        $relationClass = $annotationParams[0];
         $relationProperty = $annotationParams[1];
         $crossRefTable = $annotationParams[2];
         $columnName = $annotationParams[3];
@@ -293,8 +293,8 @@ abstract class BaseService
             }
         }
 
-        $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable} crt WHERE crt.{$columnName}={$id}";
-        $getReverseRelationIdsSql = "SELECT * FROM {$crossRefTable} crt WHERE crt.{$relationColumnName}=";
+        $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable} WHERE {$columnName}={$id}";
+        $getReverseRelationIdsSql = "SELECT * FROM {$crossRefTable} WHERE {$relationColumnName}=";
 
         $relationIds = $this->executeQueryArrayNum($getRelationIdsSql);
 
@@ -317,7 +317,7 @@ abstract class BaseService
     {
         $id = $object->id;
         $annotationParams = $this->getParams($object, $propName);
-        $relationClass = get_class($annotationParams[0]);
+        $relationClass = $annotationParams[0];
         $relationColumnName = $annotationParams[1];
 
         $relationService = null;
@@ -342,7 +342,7 @@ abstract class BaseService
     {
         $id = $object->id;
         $annotationParams = $this->getParams($object, $propName);
-        $relationClass = get_class($annotationParams[0]);
+        $relationClass = $annotationParams[0];
         $crossRefTable = $annotationParams[2];
         $columnName = $annotationParams[3];
         $relationColumnName = $annotationParams[4];
@@ -354,7 +354,7 @@ abstract class BaseService
             }
         }
 
-        $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable} crt WHERE crt.{$columnName}={$id}";
+        $getRelationIdsSql = "SELECT {$relationColumnName} FROM {$crossRefTable}  WHERE {$columnName}={$id}";
 
         $relations = $this->getRelation($object, $propName);
         $relationIds = $this->executeQueryArrayNum($getRelationIdsSql);
@@ -366,8 +366,7 @@ abstract class BaseService
                 $relationId = $relation->id;
                 if (!in_array($relationId, $relationIds)) {
                     if (!isset($relationId)) $relationId = $this->db->insert_id;
-                    $sql = "INSERT INTO {$crossRefTable} SET ";
-                    $sql .= "({$relationColumnName} = {$relationId}, {$columnName} = {$id})";
+                    $sql = "INSERT INTO {$crossRefTable}({$relationColumnName}, {$columnName}) VALUES ({$relationId}, {$id})";
                     $this->execute($sql);
                 }
             }
@@ -395,8 +394,7 @@ abstract class BaseService
 
             $relationId = $relation->id;
             if (!isset($relationId)) $relationId = $this->db->insert_id;
-            $sql = "UPDATE {$this->table} SET ";
-            $sql .= " {$relationColumnName} = {$relationId} WHERE id={$id}";
+            $sql = "UPDATE {$this->table} SET {$relationColumnName} = {$relationId} WHERE id={$id}";
             $this->execute($sql);
         }
     }
@@ -451,7 +449,7 @@ abstract class BaseService
         $matches = null;
         $returnValue = preg_match_all('#\\(.*?\\)#', $annotationStr, $matches, PREG_SET_ORDER);
         if ($returnValue)
-            return explode(',', substr($matches[0][0], 1, strlen($matches[0][0]) - 1));
+            return explode(',', substr($matches[0][0], 1, strlen($matches[0][0]) - 2));
         return array();
     }
 
@@ -485,7 +483,7 @@ abstract class BaseService
     private function setRelation($object, $propName, $value)
     {
         $reflect = new ReflectionClass($object);
-        $reflect->getProperty($propName)->setValue($value);
+        $reflect->getProperty($propName)->setValue($object, $value);
     }
 
     private function getRelation($object, $propName)

@@ -21,10 +21,3 @@ if ($markService->save($mark, true)) {
 $mark = $markService->get($mark->id);
 error_log($mark->id);
 echo $mark->id;
-
-$sql = "INSERT INTO `mark`(`id`, `type`, `subject_id`) VALUES (1, 'att', 0)";
-DataBase::getInstance()->query($sql);
-$mark = $markService->get(1);
-
-error_log($mark->id);
-echo $mark->id;
