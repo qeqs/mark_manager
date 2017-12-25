@@ -1,5 +1,6 @@
 <?php
 
+include 'DataBase.inc';
 /**
  * DataBase singleton class
  */

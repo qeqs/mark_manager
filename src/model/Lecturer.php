@@ -12,7 +12,7 @@ class Lecturer
 
     var $surname;
 
-    var $subjects;
+    var $subject;
 
 }
 
